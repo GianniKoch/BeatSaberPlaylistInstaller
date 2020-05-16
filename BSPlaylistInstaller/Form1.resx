@@ -2046,4 +2046,7 @@
         +A8AAA==
 </value>
   </data>
+  <data name="Form1_button1_Click_Beat_Saber_Playlist___json____bplist_____json____bplist" xml:space="preserve">
+    <value>Beat Saber Playlist(*.json; *.bplist)| *.json; *.bplist</value>
+  </data>
 </root>
