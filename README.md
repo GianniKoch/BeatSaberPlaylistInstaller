@@ -25,4 +25,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Suggestions
 
-All suggestions are welcome in **Issues**
+All suggestions are welcome in [Issues](https://github.com/GianniKoch/BeatSaberPlaylistInstaller/issues)
