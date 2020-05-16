@@ -15,6 +15,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 ## Authors
 
 * **Gianni Koch** - *Initial work* - [Profile](https://github.com/GianniKoch)
+* **Eris** - *Supervisor* - [Profile](https://github.com/ErisApps)
 
 See also the list of [contributors](https://github.com/GianniKoch/BeatSaberPlaylistInstaller/graphs/contributors) who participated in this project.
 
