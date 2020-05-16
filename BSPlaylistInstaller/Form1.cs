@@ -1,186 +1,222 @@
 ﻿using System;
 using System.Windows.Forms;
-using Newtonsoft.Json.Linq;
 using System.IO;
 using BeatSaverSharp;
 using System.IO.Compression;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using BSPlaylistInstaller.Models;
+using Newtonsoft.Json;
 
 namespace BSPlaylistInstaller
 {
-    public partial class Form1 : Form
-    {
-        private List<string> playlistdownloading;
-        public Form1()
-        {
-            InitializeComponent();
-            playlistdownloading = new List<string>();
-        }
+	public partial class Form1 : Form
+	{
+		private List<string> _playlistDownloading;
+		private BeatSaver _beatSaver;
 
-        private async void button1_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                OpenFileDialog choofdlog = new OpenFileDialog();
-                choofdlog.Filter = "Beat Saber Playlist(*.json; *.bplist)| *.json; *.bplist";
-                choofdlog.Multiselect = false;
+		public Form1()
+		{
+			InitializeComponent();
+			_playlistDownloading = new List<string>();
 
-                if (choofdlog.ShowDialog() == DialogResult.OK)
-                {
-                    string sFileName = choofdlog.FileName;
-                    int random = new Random().Next();
-                    cboActiveStop.Items.Add(choofdlog.SafeFileName + random.ToString());
-                    var playlist = choofdlog.SafeFileName + random.ToString();
-                    playlistdownloading.Add(playlist);
-                    txtLog.Text = "new path selected: " + sFileName + Environment.NewLine + txtLog.Text;
+			var options = new HttpOptions
+			{
+				ApplicationName = "Beatsaber Playlist Missing Songs Downloader",
+				Version = new Version(1, 0, 0),
+				HandleRateLimits = true,
+			};
+			_beatSaver = new BeatSaver(options);
+		}
 
-                    MessageBox.Show("Select your main beatsaver folder (folder with the BeatSaber.exe)");
-                    string bsfolderpath;
-                    using (CommonOpenFileDialog dialog = new CommonOpenFileDialog())
-                    {
-                        dialog.IsFolderPicker = true;
-                        dialog.Multiselect = false;
-                        if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
-                        {
-                            txtLog.Text = "No beatsaber folder found!" + Environment.NewLine + txtLog.Text;
-                            return;
-                        }
-                        bsfolderpath = dialog.FileName;
-                    }
+		private async void button1_Click(object sender, EventArgs e)
+		{
+			var choofdlog = new OpenFileDialog
+			{
+				Filter = "Beat Saber Playlist(*.json; *.bplist)| *.json; *.bplist",
+				Multiselect = false
+			};
 
-                    txtLog.Text = "new bs folder path selected: " + bsfolderpath + Environment.NewLine + txtLog.Text;
+			if (choofdlog.ShowDialog() != DialogResult.OK)
+			{
+				return;
+			}
 
-                    JObject data = JObject.Parse(File.ReadAllText(sFileName));
-                    var array = data["songs"];
+			var sFileName = choofdlog.FileName;
+			var random = new Random().Next();
+			cboActiveStop.Items.Add(choofdlog.SafeFileName + random);
+			var playListName = choofdlog.SafeFileName + random;
+			_playlistDownloading.Add(playListName);
+			WriteToLog("New path selected: " + sFileName);
 
-                    JArray a = JArray.Parse(array.ToString());
-                    var songs = a.Count;
-                    var options = new HttpOptions
-                    {
-                        ApplicationName = "Beatsaber Playlist Missing Songs Downloader",
-                        Version = new Version(1, 0, 0),
-                        HandleRateLimits = true,
-                    };
-                    BeatSaver bs = new BeatSaver(options);
-                    for (var i = 0; i < songs; i++)
-                    {
-                        if (!playlistdownloading.Contains(playlist))
-                        {
-                            BeginInvoke((MethodInvoker)delegate
-                            {
-                                txtLog.Text = $"Stopped downloading {playlist}" + Environment.NewLine + txtLog.Text;
-                                cboActiveStop.Items.Remove(playlist);
-                                cboActiveStop.Text = "";
-                            });
-                            return;
-                        }
-                        try
-                        {   
-                            string hash = a[i]["hash"].ToString();
-                            var beatmapje = await bs.Hash(hash);
-                            var excist = false;
-                            foreach(var file in Directory.GetDirectories($@"{ bsfolderpath}\Beat Saber_Data\CustomLevels"))
-                            {
-                                if (file.Contains(beatmapje.Key))
-                                {
-                                    BeginInvoke((MethodInvoker)delegate
-                                    {
-                                        txtLog.Text = $"{i + 1}/{songs} | {beatmapje.Name} already excists!" + Environment.NewLine + txtLog.Text;
-                                    });
-                                    excist = true;
-                                }
-                            }
-                            if (excist)
-                                continue;
-                            var zipBytes = await beatmapje.DownloadZip();
-                            var zippath = Path.Combine($@"{bsfolderpath}\Beat Saber_Data\CustomLevels", $"{beatmapje.Name}.zip");
-                            using (var memStream = new MemoryStream(zipBytes))
-                            {
-                                using (var writer = File.OpenWrite(zippath))
-                                {
-                                    BeginInvoke((MethodInvoker)delegate
-                                    {
-                                        txtLog.Text = $"{i + 1}/{songs} | downloading {beatmapje.Name}" + Environment.NewLine + txtLog.Text;
-                                    });
-                                    await memStream.CopyToAsync(writer).ConfigureAwait(false);
-                                    await writer.FlushAsync().ConfigureAwait(false);
-                                }
-                            }
-                            using (var beatmapjezip = ZipFile.OpenRead(zippath))
-                            {
-                                var beatmapfolderpath = Path.Combine($@"{bsfolderpath}\Beat Saber_Data\CustomLevels", $"{beatmapje.Key} {beatmapje.Name} - {beatmapje.Uploader.Username}");
-                                Directory.CreateDirectory(beatmapfolderpath);
-                                BeginInvoke((MethodInvoker)delegate
-                                {
-                                    txtLog.Text = $"{i + 1}/{songs} | unzipping {beatmapje.Name}" + Environment.NewLine + txtLog.Text;
-                                });
-                                foreach (var entry in beatmapjezip.Entries)
-                                {
-                                    using (var ZipEntryStream = entry.Open())
-                                    using (var writer = File.OpenWrite(Path.Combine(beatmapfolderpath, entry.Name)))
-                                    {
-                                        await ZipEntryStream.CopyToAsync(writer).ConfigureAwait(false);
-                                        await writer.FlushAsync().ConfigureAwait(false);
-                                    }
-                                }
-                            }
-                            BeginInvoke((MethodInvoker)delegate
-                            {
-                                txtLog.Text = $"{i + 1}/{songs} | success downloading {beatmapje.Name} " + Environment.NewLine + txtLog.Text;
-                            });
-                            File.Delete(zippath);
-                        }
-                        catch(Exception ex)
-                        {
-                            BeginInvoke((MethodInvoker)delegate
-                            {
-                                txtLog.Text = $"{i}/{songs} | failed download " + 
-                                Environment.NewLine + $"Message: {ex.Message}" + Environment.NewLine + txtLog.Text;
-                            });
-                        }
-                    }
-                    BeginInvoke((MethodInvoker)delegate
-                    {
-                        cboActiveStop.Items.Remove(playlist);
-                        cboActiveStop.Text = "";
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message);
-            }
-            BeginInvoke((MethodInvoker)delegate
-            {
-                txtLog.Text = "Finished downloading missing songs from playlist!" + Environment.NewLine + txtLog.Text;
-            });
-        }
-        private void btnStopDownload_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (cboActiveStop.SelectedItem.ToString() == "")
-                {
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                return; // Nothing selected
-            }
-            
-            if (!playlistdownloading.Contains(cboActiveStop.SelectedItem.ToString()))
-            {
-                MessageBox.Show("This playlist already stopped downloading!");
-                return;
-            }
-            playlistdownloading.Remove(cboActiveStop.SelectedItem.ToString());
-        }
+			if (SelectBeatSaberFolderPah(out var bsFolderPath))
+			{
+				return;
+			}
 
-        private void btnStopAll_Click(object sender, EventArgs e)
-        {
-            playlistdownloading = new List<string>();
-        }
-    }
+			WriteToLog("New bs folder path selected: " + bsFolderPath);
+
+			PlayList playList;
+			try
+			{
+				playList = JsonConvert.DeserializeObject<PlayList>(File.ReadAllText(sFileName));
+				playList.Songs = playList.Songs
+					.Where(x => string.IsNullOrWhiteSpace(x.Hash))
+					.ToList();
+			}
+			catch (Exception ex)
+			{
+				WriteToLog($"Failed reading playlist{Environment.NewLine}" +
+				           $"Message: {ex.Message}");
+				return;
+			}
+
+			await DownloadPlayList(playList, playListName, bsFolderPath);
+
+			BeginInvoke((MethodInvoker) delegate
+			{
+				cboActiveStop.Items.Remove(playListName);
+				cboActiveStop.Text = "";
+			});
+
+			WriteToLog("Finished downloading missing songs from playlist!");
+		}
+
+		private void btnStopDownload_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				if (cboActiveStop.SelectedItem.ToString() == "")
+				{
+					return;
+				}
+			}
+			catch (Exception)
+			{
+				// NOP
+				return; // Nothing selected
+			}
+
+			if (!_playlistDownloading.Contains(cboActiveStop.SelectedItem.ToString()))
+			{
+				MessageBox.Show("This playlist already stopped downloading!");
+				return;
+			}
+
+			_playlistDownloading.Remove(cboActiveStop.SelectedItem.ToString());
+		}
+
+		private void btnStopAll_Click(object sender, EventArgs e)
+		{
+			_playlistDownloading.Clear();
+		}
+
+		private bool SelectBeatSaberFolderPah(out string bsFolderPath)
+		{
+			MessageBox.Show("Select your main beatsaver folder (folder with the BeatSaber.exe)");
+			bsFolderPath = null;
+
+			using (var dialog = new CommonOpenFileDialog
+			{
+				IsFolderPicker = true,
+				Multiselect = false
+			})
+			{
+				if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
+				{
+					WriteToLog("No Beat Saber folder found!");
+					return false;
+				}
+
+				bsFolderPath = dialog.FileName;
+
+				return true;
+			}
+		}
+
+		private async Task DownloadPlayList(PlayList playList, string playListName, string bsFolderPath)
+		{
+			var songs = playList.Songs.Count;
+			for (var i = 0; i < playList.Songs.Count; i++)
+			{
+				if (!_playlistDownloading.Contains(playListName))
+				{
+					BeginInvoke((MethodInvoker) (() =>
+					{
+						WriteToLog($"Stopped downloading {playListName}");
+						cboActiveStop.Items.Remove(playListName);
+						cboActiveStop.Text = "";
+					}));
+					return;
+				}
+
+				try
+				{
+					var beatMap = await _beatSaver.Hash(playList.Songs[i].Hash);
+					if (CheckIfSongAlreadyPresent(bsFolderPath, beatMap))
+					{
+						WriteToLog($"{i + 1}/{songs} | {beatMap.Name} already exists!");
+						continue;
+					}
+
+					await DownloadAndExtractBeatMap(beatMap, bsFolderPath, i, songs);
+				}
+				catch (Exception ex)
+				{
+					WriteToLog($"{i}/{songs} | failed download{Environment.NewLine}" +
+					           $"Message: {ex.Message}");
+				}
+			}
+		}
+
+		private async Task DownloadAndExtractBeatMap(Beatmap beatMap, string bsFolderPath, int songNumber, int totalSongs)
+		{
+			var zipBytes = await beatMap.DownloadZip();
+			var zipPath = Path.Combine($@"{bsFolderPath}\Beat Saber_Data\CustomLevels", $"{beatMap.Name}.zip");
+			using (var memStream = new MemoryStream(zipBytes))
+			{
+				using (var writer = File.OpenWrite(zipPath))
+				{
+					WriteToLog($"{songNumber + 1}/{totalSongs} | downloading {beatMap.Name}");
+
+					await memStream.CopyToAsync(writer).ConfigureAwait(false);
+					await writer.FlushAsync().ConfigureAwait(false);
+				}
+			}
+
+			using (var beatMapZip = ZipFile.OpenRead(zipPath))
+			{
+				var beatMapFolderPath = Path.Combine($@"{bsFolderPath}\Beat Saber_Data\CustomLevels", $"{beatMap.Key} {beatMap.Name} - {beatMap.Uploader.Username}");
+				Directory.CreateDirectory(beatMapFolderPath);
+				WriteToLog($"{songNumber + 1}/{totalSongs} | unzipping {beatMap.Name}");
+
+				foreach (var entry in beatMapZip.Entries)
+				{
+					using (var zipEntryStream = entry.Open())
+					using (var writer = File.OpenWrite(Path.Combine(beatMapFolderPath, entry.Name)))
+					{
+						await zipEntryStream.CopyToAsync(writer).ConfigureAwait(false);
+						await writer.FlushAsync().ConfigureAwait(false);
+					}
+				}
+			}
+
+			WriteToLog($"{songNumber + 1}/{totalSongs} | success downloading {beatMap.Name}");
+			File.Delete(zipPath);
+		}
+
+		private void WriteToLog(string toLog)
+		{
+			BeginInvoke((MethodInvoker) (() => txtLog.Text = toLog + Environment.NewLine + txtLog.Text));
+		}
+
+		private static bool CheckIfSongAlreadyPresent(string bsFolderPath, Beatmap beatMap)
+		{
+			return Directory
+				.GetDirectories($@"{bsFolderPath}\Beat Saber_Data\CustomLevels")
+				.Any(folderName => folderName.StartsWith(beatMap.Key));
+		}
+	}
 }
