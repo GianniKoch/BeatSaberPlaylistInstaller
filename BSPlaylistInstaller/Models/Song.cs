@@ -2,20 +2,28 @@
 
 namespace BSPlaylistInstaller.Models
 {
-	public struct Song
-	{
-		[JsonConstructor]
-		public Song(string key, string hash, string songName, string uploader)
-		{
-			Key = key;
-			Hash = hash;
-			SongName = songName;
-			Uploader = uploader;
-		}
+    public class Song
+    {
+        [JsonConstructor]
+        public Song(string hash)
+        {
+            Key = string.Empty;
+            Hash = hash;
+            SongName = string.Empty;
+            Uploader = string.Empty;
+        }
 
-		public string Key { get; }
-		public string Hash { get; }
-		public string SongName { get; }
-		public string Uploader { get; }
-	}
+        public Song(string key, string hash, string songName, string uploader)
+        {
+            Key = key;
+            Hash = hash;
+            SongName = songName;
+            Uploader = uploader;
+        }
+
+        public string Key { get; set; }
+        public string Hash { get; set; }
+        public string SongName { get; set; }
+        public string Uploader { get; set; }
+    }
 }

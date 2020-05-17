@@ -33,6 +33,7 @@ namespace BSPlaylistInstaller
 
 		private async void button1_Click(object sender, EventArgs e)
 		{
+
 			var choofdlog = new OpenFileDialog
 			{
 				Filter = "Beat Saber Playlist(*.json; *.bplist)| *.json; *.bplist",
@@ -62,9 +63,7 @@ namespace BSPlaylistInstaller
 			try
 			{
 				playList = JsonConvert.DeserializeObject<PlayList>(File.ReadAllText(sFileName));
-				playList.Songs = playList.Songs
-					.Where(x => string.IsNullOrWhiteSpace(x.Hash))
-					.ToList();
+				playList.Songs = playList.Songs.Where(x => !string.IsNullOrWhiteSpace(x.Hash)).ToList();
 			}
 			catch (Exception ex)
 			{
@@ -81,7 +80,6 @@ namespace BSPlaylistInstaller
 				cboActiveStop.Text = "";
 			});
 
-			WriteToLog("Finished downloading missing songs from playlist!");
 		}
 
 		private void btnStopDownload_Click(object sender, EventArgs e)
@@ -127,19 +125,19 @@ namespace BSPlaylistInstaller
 				if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
 				{
 					WriteToLog("No Beat Saber folder found!");
-					return false;
+					return true;
 				}
 
 				bsFolderPath = dialog.FileName;
 
-				return true;
+				return false;
 			}
 		}
 
 		private async Task DownloadPlayList(PlayList playList, string playListName, string bsFolderPath)
 		{
 			var songs = playList.Songs.Count;
-			for (var i = 0; i < playList.Songs.Count; i++)
+			for (var i = 0; i < songs; i++)
 			{
 				if (!_playlistDownloading.Contains(playListName))
 				{
@@ -169,6 +167,8 @@ namespace BSPlaylistInstaller
 					           $"Message: {ex.Message}");
 				}
 			}
+
+			WriteToLog("Finished downloading missing songs from playlist!");
 		}
 
 		private async Task DownloadAndExtractBeatMap(Beatmap beatMap, string bsFolderPath, int songNumber, int totalSongs)
@@ -216,7 +216,7 @@ namespace BSPlaylistInstaller
 		{
 			return Directory
 				.GetDirectories($@"{bsFolderPath}\Beat Saber_Data\CustomLevels")
-				.Any(folderName => folderName.StartsWith(beatMap.Key));
+				.Any(folderName => Path.GetFileName(folderName).StartsWith(beatMap.Key));
 		}
 	}
 }
