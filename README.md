@@ -2,6 +2,16 @@
 
 This is a tool that allows you to download all the songs in a custom beatsaber playlist in your customs songs folder.
 
+## Usage
+
+1) You start the exe, then click the button to select a playlist with extension .json or .bslist. 
+2) After this you enter your Beat Saber folder. 
+3) When you have chosen the folder, all songs will be downloaded automatically, if a song already exists, it will be skipped. 
+
+- You can download multiple playlists at the same time by simply pressing the download playlist button again. 
+- If you download the wrong playlist you can use the combobox to select the playlist you download and stop it.
+- If you really have to, you can also stop all downloads.
+
 ## Built With
 
 * [BeatSaverSharp](https://github.com/lolPants/BeatSaverSharp) - A BeatSaver Library for C#
